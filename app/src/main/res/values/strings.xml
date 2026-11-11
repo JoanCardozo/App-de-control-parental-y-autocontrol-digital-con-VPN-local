@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SafeNet</string>
+    <string name="guard_desc">Evita que se apague la protección de SafeNet sin la clave. Solo revisa nombres en pantallas de Ajustes; no lee ni guarda lo que escribes.</string>
+</resources>
