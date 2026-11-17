@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewTextChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"
     android:description="@string/guard_desc"
-    android:packageNames="com.android.settings,com.miui.securitycenter,com.miui.packageinstaller,com.google.android.packageinstaller,com.android.packageinstaller,com.android.vpndialogs,com.miui.powerkeeper" />
+    android:packageNames="com.android.settings,com.miui.securitycenter,com.miui.packageinstaller,com.google.android.packageinstaller,com.android.packageinstaller,com.android.vpndialogs,com.miui.powerkeeper,com.android.chrome,org.mozilla.firefox,com.brave.browser,com.opera.browser,com.opera.mini.native,com.microsoft.emmx,com.sec.android.app.sbrowser,com.mi.globalbrowser,com.android.browser,com.duckduckgo.mobile.android,com.google.android.googlequicksearchbox,com.kiwibrowser.browser,com.vivaldi.browser,com.UCMobile.intl,mark.via.gp" />

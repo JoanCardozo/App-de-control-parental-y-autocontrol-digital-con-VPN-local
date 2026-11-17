@@ -16,6 +16,7 @@ import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 class DnsVpnService : VpnService() {
@@ -37,13 +38,29 @@ class DnsVpnService : VpnService() {
             "1.1.1.3", "1.0.0.3", "9.9.9.9", "149.112.112.112",
             "208.67.222.222", "208.67.220.220", "94.140.14.14", "94.140.15.15"
         )
+
+        // Si un dominio CONTIENE alguna de estas palabras, se bloquea (atrapa sitios nuevos).
+        private val KEYWORDS = listOf(
+            "hentai", "porn", "xnxx", "xvideo", "xhamster", "redtube", "youporn", "brazzers",
+            "chaturbate", "stripchat", "bongacams", "livejasmin", "onlyfans", "rule34",
+            "hanime", "spankbang", "eporner", "fapello", "sexcam", "camgirl"
+        )
+
+        // Sitios que SIEMPRE deben abrir. Si algo normal se bloquea por error, agrégalo aquí.
+        private val ALLOW = hashSetOf(
+            "mangasnosekai.com", "mangakakalot.com", "manganato.com", "mangadex.org",
+            "tmomanga.com", "zonatmo.com", "lectortmo.com", "inmanga.com", "webtoons.com",
+            "tapas.io", "myanimelist.net", "anilist.co", "crunchyroll.com"
+        )
     }
 
     private var tun: ParcelFileDescriptor? = null
     private val pool = Executors.newFixedThreadPool(8)
     private var blocklist = LongArray(0)
     private val writeLock = Any()
-    private val googleRegex = Regex("^(www\\.)?google\\.[a-z]{2,3}(\\.[a-z]{2})?$")
+    private val googleRegex =
+        Regex("^(www\\.|images\\.|encrypted\\.|m\\.)?google\\.[a-z]{2,3}(\\.[a-z]{2})?$")
+    private val blogspotRegex = Regex("^(.+)\\.blogspot\\.[a-z]{2,3}(\\.[a-z]{2})?$")
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         goForeground()
@@ -182,7 +199,7 @@ class DnsVpnService : VpnService() {
         return forward(q)
     }
 
-    // Huella de 64 bits de un dominio (así 950.000 dominios ocupan ~8 MB)
+    // Huella de 64 bits de un dominio (igual a la que se usó para crear blocklist.bin)
     private fun h64(s: String): Long {
         var h = -3750763034362895579L
         for (ch in s) {
@@ -192,8 +209,23 @@ class DnsVpnService : VpnService() {
         return h
     }
 
-    private fun isBlocked(name: String): Boolean {
+    private fun isBlocked(raw: String): Boolean {
+        // Todas las versiones de blogspot por país se tratan como blogspot.com
+        val m = blogspotRegex.matchEntire(raw)
+        val name = if (m != null) m.groupValues[1] + ".blogspot.com" else raw
+
+        // 1) Excepciones: nunca se bloquean
         var c = name
+        while (true) {
+            if (ALLOW.contains(c)) return false
+            val i = c.indexOf('.')
+            if (i < 0) break
+            c = c.substring(i + 1)
+        }
+        // 2) Palabras clave dentro del dominio
+        for (k in KEYWORDS) if (name.contains(k)) return true
+        // 3) Lista de dominios (el dominio y todos sus "padres")
+        c = name
         while (true) {
             if (java.util.Arrays.binarySearch(blocklist, h64(c)) >= 0) return true
             val i = c.indexOf('.')
@@ -281,20 +313,12 @@ class DnsVpnService : VpnService() {
         return r
     }
 
+    // Lee blocklist.bin: una lista ordenada de huellas de 8 bytes cada una
     private fun loadBlocklist(): LongArray {
-        var arr = LongArray(1_100_000)
-        var n = 0
-        assets.open("blocklist.txt").bufferedReader().useLines { lines ->
-            lines.forEach { raw ->
-                val line = raw.substringBefore('#').trim().lowercase()
-                if (line.isNotEmpty()) {
-                    if (n == arr.size) arr = arr.copyOf(n * 2)
-                    arr[n++] = h64(line.split(' ', '\t').last())
-                }
-            }
-        }
-        val r = arr.copyOf(n)
-        r.sort()
-        return r
+        val bytes = assets.open("blocklist.bin").use { it.readBytes() }
+        val lb = ByteBuffer.wrap(bytes).asLongBuffer()
+        val arr = LongArray(lb.remaining())
+        lb.get(arr)
+        return arr
     }
 }
